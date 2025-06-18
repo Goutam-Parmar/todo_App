@@ -1,0 +1,20 @@
+# Environment file with DB credentials
+app.env
+
+# Go build output (binary files)
+*.exe
+*.out
+*.test
+
+# Dependency cache & binaries (optional)
+bin/
+pkg/
+
+# Coverage reports
+coverage.out
+
+# IDE/editor config (optional, if you're using GoLand or VSCode)
+.idea/
+.vscode/
+*.iml
+

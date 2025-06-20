@@ -17,14 +17,14 @@ func GetTodosByUserID(db *sql.DB) http.HandlerFunc {
 
 		userID, err := strconv.Atoi(idStr)
 		if err != nil {
-			http.Error(w, `{"error": "Invalid user ID"}`, http.StatusBadRequest)
+			http.Error(w, `{"error": "invalid user ID"}`, http.StatusBadRequest)
 			return
 		}
 
-		query := `SELECT id, user_id, title, description, is_completed FROM todos WHERE user_id = $1`
+		query := `SELECT id, user_id, title, description, is_completed FROM todos WHERE id = $1`
 		rows, err := db.Query(query, userID)
 		if err != nil {
-			http.Error(w, `{"error": "Database error"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error": "database error"}`, http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
@@ -33,7 +33,7 @@ func GetTodosByUserID(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var todo model.Todo
 			if err := rows.Scan(&todo.ID, &todo.UserID, &todo.Title, &todo.Description, &todo.IsCompleted); err != nil {
-				http.Error(w, `{"error": "Error scanning todo"}`, http.StatusInternalServerError)
+				http.Error(w, `{"error": "error scanning todo"}`, http.StatusInternalServerError)
 				return
 			}
 			todos = append(todos, todo)
@@ -41,7 +41,7 @@ func GetTodosByUserID(db *sql.DB) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "Todos fetched successfully",
+			"message": "todos fetched successfully",
 			"todos":   todos,
 		})
 	}

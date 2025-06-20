@@ -15,7 +15,7 @@ func LoginUser(db *sql.DB) http.HandlerFunc {
 
 		//request body fill in the req model
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, `{"error": "Invalid request payload"}`, http.StatusBadRequest)
+			http.Error(w, `{"error": "invalid request payload"}`, http.StatusBadRequest)
 			return
 		}
 		//Fetch user by email
@@ -30,23 +30,23 @@ func LoginUser(db *sql.DB) http.HandlerFunc {
 		)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				http.Error(w, `{"error": "Email not registered"}`, http.StatusUnauthorized)
+				http.Error(w, `{"error": "email not registered"}`, http.StatusUnauthorized)
 			} else {
-				http.Error(w, `{"error": "Database error"}`, http.StatusInternalServerError)
+				http.Error(w, `{"error": "database error"}`, http.StatusInternalServerError)
 			}
 			return
 		}
 
 		// Check password
 		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-			http.Error(w, `{"error": "Incorrect password"}`, http.StatusUnauthorized)
+			http.Error(w, `{"error": "incorrect password"}`, http.StatusUnauthorized)
 			return
 		}
 
 		// Create session token (reused from session.go)
 		token, err := CreateSession(db, user.ID)
 		if err != nil {
-			http.Error(w, `{"error": "Could not create session"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error": "could not create session"}`, http.StatusInternalServerError)
 			return
 		}
 
@@ -54,15 +54,17 @@ func LoginUser(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "Login successful",
-			"token":   token,
-			"user": map[string]interface{}{
-				"id":         user.ID,
-				"name":       user.Name,
-				"email":      user.Email,
-				"created_at": user.CreatedAt,
+		resp := model.LoginResponse{
+			Message: "login successful",
+			Token:   token,
+			User: model.UserResponse{
+				ID:    user.ID,
+				Name:  user.Name,
+				Email: user.Email,
 			},
-		})
+		}
+
+		json.NewEncoder(w).Encode(resp)
+
 	}
 }

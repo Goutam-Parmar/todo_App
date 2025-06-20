@@ -18,11 +18,10 @@ func Logout(db *sql.DB) http.HandlerFunc {
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Step 2: deleted_at ko abhi ka time set karo
 		_, err := db.Exec(`
 			UPDATE sessions
-			SET deleted_at = $1
-			WHERE token = $2
+			  SET deleted_at = $1
+			   WHERE token = $2
 		`, time.Now().UTC(), token)
 
 		if err != nil {

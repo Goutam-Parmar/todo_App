@@ -23,13 +23,13 @@ func GetAllTodo(db *sql.DB) http.HandlerFunc {
 
 		userID, err := strconv.Atoi(idStr)
 		if err != nil {
-			http.Error(w, "Invalid user ID", http.StatusBadRequest)
+			http.Error(w, "invalid user ID", http.StatusBadRequest)
 			return
 		}
 
 		rows, err := db.Query("SELECT id, title, description, is_completed, created_at FROM todos WHERE user_id=$1", userID)
 		if err != nil {
-			http.Error(w, "Error fetching todos", http.StatusInternalServerError)
+			http.Error(w, "error fetching todos", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
@@ -39,7 +39,7 @@ func GetAllTodo(db *sql.DB) http.HandlerFunc {
 			var todo Todo
 			err := rows.Scan(&todo.ID, &todo.Title, &todo.Description, &todo.IsCompleted, &todo.CreatedAt)
 			if err != nil {
-				http.Error(w, "Error scanning todo", http.StatusInternalServerError)
+				http.Error(w, "error scanning todo", http.StatusInternalServerError)
 				return
 			}
 			todos = append(todos, todo)

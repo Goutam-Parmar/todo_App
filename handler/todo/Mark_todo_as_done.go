@@ -12,10 +12,10 @@ func MarkTodoAsDone(db *sql.DB) http.HandlerFunc {
 
 		_, err := db.Exec(`UPDATE todos SET is_completed = TRUE WHERE id = $1`, id)
 		if err != nil {
-			http.Error(w, "Failed to mark todo as done", http.StatusInternalServerError)
+			http.Error(w, "failed to mark todo as done", http.StatusInternalServerError)
 			return
 		}
 
-		w.Write([]byte("Todo marked as done"))
+		w.Write([]byte("todo marked as done"))
 	}
 }

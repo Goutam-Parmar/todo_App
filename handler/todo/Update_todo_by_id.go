@@ -4,14 +4,18 @@ import (
 	"TodoApp/model"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 func UpdateTodoByID(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
 		todoIDStr := mux.Vars(r)["ID"]
 		todoID, err := strconv.Atoi(todoIDStr)
 		if err != nil {
@@ -25,7 +29,10 @@ func UpdateTodoByID(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		query := `UPDATE todos SET title = $1, description = $2, is_completed = $3 WHERE id = $4`
+		query := `
+			UPDATE todos 
+			SET title = $1, description = $2, is_completed = $3 
+			WHERE id = $4`
 		result, err := db.Exec(query, updateReq.Title, updateReq.Description, updateReq.IsCompleted, todoID)
 		if err != nil {
 			http.Error(w, `{"error": "failed to update todo"}`, http.StatusInternalServerError)
@@ -38,9 +45,16 @@ func UpdateTodoByID(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Prepare and send response
+		response := map[string]interface{}{
+			"message":          "todo updated successfully",
+			"response_time_ms": float64(time.Since(start).Microseconds()) / 1000.0,
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "todo updated successfully",
-		})
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+
+		fmt.Println("⏱️ [UPDATE TODO] Time Taken:", time.Since(start))
 	}
 }

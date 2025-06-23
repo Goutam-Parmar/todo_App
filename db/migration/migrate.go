@@ -15,7 +15,7 @@ func MigrateUp(db *sql.DB) error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://../db/migration",
+		"file://db/migration", // ✅ This is correct now
 		"postgres",
 		driver,
 	)

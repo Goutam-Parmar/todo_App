@@ -4,21 +4,25 @@ import (
 	"TodoApp/model"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 func LoginUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
 		var req model.LoginRequest
 
-		//request body fill in the req model
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error": "invalid request payload"}`, http.StatusBadRequest)
 			return
 		}
-		//Fetch user by email
+		//fmt.Println("After JSON Decode:", time.Since(start))
+
 		var user model.User
 		query := `SELECT id, name, email, password, created_at FROM users WHERE email = $1`
 		err := db.QueryRow(query, req.Email).Scan(
@@ -36,35 +40,41 @@ func LoginUser(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
+		fmt.Println(" Time After DB Query:", time.Since(start))
 
-		// Check password
+		// Step 3: Password Check
 		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 			http.Error(w, `{"error": "incorrect password"}`, http.StatusUnauthorized)
 			return
 		}
+		fmt.Println("Time After Password Check:", time.Since(start))
 
-		// Create session token (reused from session.go)
+		// Step 4: Create Session Token
 		token, err := CreateSession(db, user.ID)
 		if err != nil {
 			http.Error(w, `{"error": "could not create session"}`, http.StatusInternalServerError)
 			return
 		}
+		fmt.Println("Time After Session Creation:", time.Since(start))
 
-		// Return success response with token
+		// Step 5: Send Response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
 		resp := model.LoginResponse{
 			Message: "login successful",
 			Token:   token,
-			User: model.UserResponse{
+			User: model.LoginUserResponse{
 				ID:    user.ID,
 				Name:  user.Name,
 				Email: user.Email,
 			},
+			ResponseTimeMs: float64(time.Since(start).Microseconds()) / 1000.0, // ⏱️ Final time in ms
 		}
 
 		json.NewEncoder(w).Encode(resp)
 
+		// Final log
+		fmt.Println("✅ [LOGIN] Total Time Taken:", time.Since(start))
 	}
 }

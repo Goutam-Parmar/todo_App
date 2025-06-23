@@ -4,43 +4,56 @@ import (
 	"TodoApp/model"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 )
 
 func CreateTodoForUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var todo model.Todo
+		start := time.Now()
 
-		if err := json.NewDecoder(r.Body).Decode(&todo); err != nil {
+		var req model.CreateTodoRequest
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error": "invalid request payload"}`, http.StatusBadRequest)
 			return
 		}
 
-		if todo.Title == "" || todo.UserID == 0 {
+		if req.Title == "" || req.UserID == 0 {
 			http.Error(w, `{"error": "title and user_id are required"}`, http.StatusBadRequest)
 			return
 		}
 
-		query := `INSERT INTO
-         todos (user_id, title, description)
+		var todoID int
+		query := `
+         INSERT INTO todos (user_id, title, description)
          VALUES ($1, $2, $3) 
          RETURNING id`
-		err := db.QueryRow(query, todo.UserID, todo.Title, todo.Description).Scan(&todo.ID)
+		err := db.QueryRow(query, req.UserID, req.Title, req.Description).Scan(&todoID)
 		if err != nil {
 			http.Error(w, `{"error": "failed to insert todo"}`, http.StatusInternalServerError)
 			return
 		}
 
-		// just send the response data which is necessary to the user
-		todoResponse := model.NewCreateToDoResponse(&todo)
+		// Response model
+		resp := model.TodoCreated{
+			Message: "todo created successfully",
+			Todo: model.CreateTodoResponse{
+				ID:          todoID,
+				UserID:      req.UserID,
+				Title:       req.Title,
+				Description: req.Description,
+				IsCompleted: false,
+			},
+			ResponseTimeMs: float64(time.Since(start).Microseconds()) / 1000.0,
+		}
 
-		todo.IsCompleted = false
+		// Response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(resp)
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "todo created successfully",
-			"todo":    todoResponse,
-		})
+		fmt.Println("[CREATE TODO] Time Taken:", time.Since(start))
 	}
 }

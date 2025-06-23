@@ -1,28 +1,32 @@
 package auth
 
 import (
+	"TodoApp/model"
 	"database/sql"
 	"encoding/json"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"time"
+
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
 )
 
-type RegisterRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type UserResponse struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
+// RegisterUser godoc
+// @Summary      Register a new user
+// @Description  Allows a new user to register with name, email, and password
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.RegisterRequest true "User registration data"
+// @Success      200 {object} model.SuccessResponse
+// @Failure      400 {object} model.ErrorResponse
+// @Router       /register [post]
 
 func Register(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req RegisterRequest
+		start := time.Now() // ⏱️ Start measuring time
+
+		var req model.RegisterUserRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid request", http.StatusBadRequest)
@@ -43,20 +47,26 @@ func Register(db *sql.DB) http.HandlerFunc {
 		`, req.Name, req.Email, string(hashedPassword), time.Now()).Scan(&userID)
 
 		if err != nil {
-			http.Error(w, "Conflict : user already exist with this credentials ", http.StatusConflict)
+			http.Error(w, "Conflict: user already exists with these credentials", http.StatusConflict)
 			return
 		}
 
-		// Response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "user registered successfully",
-			"user": UserResponse{
+		// Create final response with time
+		resp := model.RegisterResponse{
+			Message: "user registered successfully",
+			User: model.RegisterUserResponse{
 				ID:    userID,
 				Name:  req.Name,
 				Email: req.Email,
 			},
-		})
+			ResponseTimeMs: float64(time.Since(start).Microseconds()) / 1000.0, // ⏱️ Time in ms
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(resp)
+
+		// Optional: log to CLI
+		fmt.Println(" [REGISTER] Time Taken:", time.Since(start))
 	}
 }

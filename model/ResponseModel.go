@@ -4,6 +4,7 @@ type LoginUserResponse struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 type LoginResponse struct {
@@ -18,12 +19,14 @@ type RegisterUserResponse struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 type RegisterResponse struct {
 	Message        string               `json:"message"`
+	Token          string               `json:"token"`
 	User           RegisterUserResponse `json:"user"`
-	ResponseTimeMs float64              `json:"response_time_ms"` // ⏱️ Added for performance tracking
+	ResponseTimeMs float64              `json:"response_time_ms"`
 }
 
 // for the Logout

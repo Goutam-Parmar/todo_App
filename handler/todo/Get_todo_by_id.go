@@ -2,28 +2,26 @@ package todo
 
 import (
 	"TodoApp/model"
+	"TodoApp/utils"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 func GetTodosByUserID(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now() // ⏱️ Start timing
+		start := time.Now()
 
-		params := mux.Vars(r)
-		idStr := params["ID"]
-
-		userID, err := strconv.Atoi(idStr)
+		// ✅ Extract claims securely from JWT
+		claims, err := utils.ExtractClaimsFromRequest(r)
 		if err != nil {
-			http.Error(w, `{"error": "invalid user ID"}`, http.StatusBadRequest)
+			http.Error(w, `{"error": "unauthorized: invalid token"}`, http.StatusUnauthorized)
 			return
 		}
+
+		userID := claims.UserID // 👈 Use userID from token, not from URL
 
 		query := `SELECT id, user_id, title, description, is_completed FROM todos WHERE user_id = $1`
 		rows, err := db.Query(query, userID)
@@ -43,7 +41,6 @@ func GetTodosByUserID(db *sql.DB) http.HandlerFunc {
 			todos = append(todos, todo)
 		}
 
-		// ✅ Response with time
 		response := map[string]interface{}{
 			"message":          "todos fetched successfully",
 			"todos":            todos,

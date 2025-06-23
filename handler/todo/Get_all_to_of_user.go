@@ -1,12 +1,11 @@
 package todo
 
 import (
+	"TodoApp/utils"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -20,16 +19,15 @@ type Todo struct {
 
 func GetAllTodo(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now() // ⏱️ start timer
+		start := time.Now()
 
-		vars := mux.Vars(r)
-		idStr := vars["ID"]
-
-		userID, err := strconv.Atoi(idStr)
+		// ✅ Extract claims from JWT
+		claims, err := utils.ExtractClaimsFromRequest(r)
 		if err != nil {
-			http.Error(w, `{"error": "invalid user ID"}`, http.StatusBadRequest)
+			http.Error(w, `{"error": "unauthorized"}`, http.StatusUnauthorized)
 			return
 		}
+		userID := claims.UserID
 
 		rows, err := db.Query(`
 			SELECT id, title, description, is_completed, created_at 

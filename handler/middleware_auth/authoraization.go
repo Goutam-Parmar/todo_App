@@ -1,15 +1,18 @@
-package middlewares
+package middleware_auth
 
 import (
-	"database/sql"
+	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"os"
 	"strings"
-	"time"
 )
 
-// Middleware Signature for mux.Use()
+// Global JWT secret
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
-func TokenMiddleware(db *sql.DB) func(http.Handler) http.Handler {
+// ✅ JWT Middleware: Validates token existence & correctness
+func JWTMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -17,20 +20,61 @@ func TokenMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 				http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
 				return
 			}
-			token := strings.TrimPrefix(authHeader, "Bearer ")
-			var deletedAt time.Time
-			err := db.QueryRow(`
-				SELECT deleted_at FROM sessions WHERE token = $1
-			`, token).Scan(&deletedAt)
-			if err != nil {
-				http.Error(w, "nuauthorized: invalid token", http.StatusUnauthorized)
-				return
-			}
-			if time.Now().After(deletedAt) {
-				http.Error(w, "unauthorized: session expired", http.StatusUnauthorized)
+
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+			token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method")
+				}
+				return jwtSecret, nil
+			})
+
+			if err != nil || !token.Valid {
+				http.Error(w, "unauthorized: invalid token", http.StatusUnauthorized)
 				return
 			}
 
+			// ✅ If needed later: You can attach token to context here
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// ✅ Role-Based Access Middleware
+func RequireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+				http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+			claims := jwt.MapClaims{}
+			token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method")
+				}
+				return jwtSecret, nil
+			})
+
+			if err != nil || !token.Valid {
+				http.Error(w, "unauthorized: invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// 🔍 Role Check
+			userRole, ok := claims["role"].(string)
+			if !ok || userRole != role {
+				http.Error(w, "forbidden: insufficient privileges", http.StatusForbidden)
+				return
+			}
+
+			// ✅ Role matched, proceed
 			next.ServeHTTP(w, r)
 		})
 	}

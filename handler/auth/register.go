@@ -2,32 +2,21 @@ package auth
 
 import (
 	"TodoApp/model"
+	"TodoApp/utils"
 	"database/sql"
 	"encoding/json"
-	"net/http"
-	"time"
-
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
+	"net/http"
+	"time"
 )
 
-// RegisterUser godoc
-// @Summary      Register a new user
-// @Description  Allows a new user to register with name, email, and password
-// @Tags         Auth
-// @Accept       json
-// @Produce      json
-// @Param        request body model.RegisterRequest true "User registration data"
-// @Success      200 {object} model.SuccessResponse
-// @Failure      400 {object} model.ErrorResponse
-// @Router       /register [post]
-
+// RegisterUser handles user registration and token generation
 func Register(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now() // ⏱️ Start measuring time
+		start := time.Now()
 
 		var req model.RegisterUserRequest
-
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
@@ -41,32 +30,38 @@ func Register(db *sql.DB) http.HandlerFunc {
 
 		var userID int
 		err = db.QueryRow(`
-			INSERT INTO users (name, email, password, created_at)
-			VALUES ($1, $2, $3, $4)
+			INSERT INTO users (name, email, password, role, created_at)
+			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id
-		`, req.Name, req.Email, string(hashedPassword), time.Now()).Scan(&userID)
+		`, req.Name, req.Email, string(hashedPassword), req.Role, time.Now()).Scan(&userID)
 
 		if err != nil {
-			http.Error(w, "Conflict: user already exists with these credentials", http.StatusConflict)
+			http.Error(w, "user already exists or db error", http.StatusConflict)
 			return
 		}
 
-		// Create final response with time
+		signedToken, err := utils.GenerateJWT(userID, req.Email, req.Role)
+		if err != nil {
+			http.Error(w, "failed to generate token", http.StatusInternalServerError)
+			return
+		}
+
 		resp := model.RegisterResponse{
 			Message: "user registered successfully",
+			Token:   signedToken,
 			User: model.RegisterUserResponse{
 				ID:    userID,
 				Name:  req.Name,
 				Email: req.Email,
+				Role:  req.Role,
 			},
-			ResponseTimeMs: float64(time.Since(start).Microseconds()) / 1000.0, // ⏱️ Time in ms
+			ResponseTimeMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(resp)
 
-		// Optional: log to CLI
-		fmt.Println(" [REGISTER] Time Taken:", time.Since(start))
+		fmt.Println("✅ [REGISTER] Time Taken:", time.Since(start))
 	}
 }
